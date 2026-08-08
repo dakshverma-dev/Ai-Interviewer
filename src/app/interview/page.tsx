@@ -68,7 +68,7 @@ export default function InterviewPage() {
         addMessage('ai', greeting);
         speakIfSupported(greeting);
       })
-      .catch(() => setError('Could not reach the AI interviewer. Check your connection and API key, then retry.'));
+      .catch(() => setError('Could not reach the AI interviewer. Check your connection and API key. You can dismiss this and try again.'));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentProblem.id]);
 
@@ -85,7 +85,7 @@ export default function InterviewPage() {
       addMessage('ai', feedback);
       speakIfSupported(feedback);
     } catch {
-      setError('Something went wrong running your code or getting feedback. Try again.');
+      setError('Something went wrong running your code or getting feedback. You can dismiss this and try again.');
     } finally {
       setIsRunning(false);
     }
@@ -109,6 +109,7 @@ export default function InterviewPage() {
   const handleNextProblem = async () => {
     setAdvancing(true);
     stopSpeaking();
+    setIsAiSpeaking(false);
 
     if (!attemptsRef.current.some((a) => a.problemId === currentProblem.id)) {
       attemptsRef.current.push({
@@ -139,7 +140,7 @@ export default function InterviewPage() {
         );
         router.push('/report');
       } catch {
-        setError('Could not generate the final report. Check your connection and API key, then retry.');
+        setError('Could not generate the final report. Dismiss this and click Finish Interview again to retry.');
         setAdvancing(false);
       }
       return;

@@ -13,7 +13,7 @@ function getModel() {
     generationConfig: {
       temperature: 0.7,
       topP: 0.8,
-      maxOutputTokens: 1024,
+      maxOutputTokens: 8192,
     },
   });
 }
@@ -21,8 +21,11 @@ function getModel() {
 async function generate(prompt: string): Promise<string> {
   const model = getModel();
   const result = await model.generateContent(prompt);
-  const response = await result.response;
-  return response.text();
+  const text = result.response.text();
+  if (!text.trim()) {
+    throw new Error('Gemini returned an empty response (likely hit the output token limit).');
+  }
+  return text;
 }
 
 export async function getInitialGreeting(problem: CodingProblem): Promise<string> {
@@ -194,5 +197,15 @@ Base every claim on the actual transcript and code above. Do not invent details.
   if (!jsonMatch) {
     throw new Error('Gemini did not return parseable JSON for the final report.');
   }
-  return JSON.parse(jsonMatch[0]) as InterviewReport;
+  const parsed = JSON.parse(jsonMatch[0]) as Partial<InterviewReport>;
+  if (
+    typeof parsed.overallVerdict !== 'string' ||
+    typeof parsed.overallSummary !== 'string' ||
+    !Array.isArray(parsed.perProblem) ||
+    !Array.isArray(parsed.strengths) ||
+    !Array.isArray(parsed.weaknesses)
+  ) {
+    throw new Error('Gemini returned a report in an unexpected shape.');
+  }
+  return parsed as InterviewReport;
 }
