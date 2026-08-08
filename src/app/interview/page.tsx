@@ -33,6 +33,7 @@ export default function InterviewPage() {
   const [advancing, setAdvancing] = useState(false);
 
   const attemptsRef = useRef<ProblemAttempt[]>([]);
+  const messagesRef = useRef<Message[]>([]);
   const greetedProblemsRef = useRef<Set<string>>(new Set());
   const voiceSupported = useRef(isVoiceSupported()).current;
   const currentProblem = CODING_PROBLEMS[problemIndex];
@@ -44,7 +45,11 @@ export default function InterviewPage() {
   }, []);
 
   const addMessage = (role: Message['role'], text: string) => {
-    setMessages((prev) => [...prev, { role, text, timestamp: Date.now() }]);
+    setMessages((prev) => {
+      const next = [...prev, { role, text, timestamp: Date.now() }];
+      messagesRef.current = next;
+      return next;
+    });
   };
 
   const speakIfSupported = (text: string) => {
@@ -93,7 +98,7 @@ export default function InterviewPage() {
       const isHintRequest = /hint|help|stuck|clue/i.test(text);
       const response = isHintRequest
         ? await getProgressiveHint(currentProblem, code, 2)
-        : await getInterviewResponse(text, code, currentProblem, messages);
+        : await getInterviewResponse(text, code, currentProblem, messagesRef.current);
       addMessage('ai', response);
       speakIfSupported(response);
     } catch {
@@ -105,11 +110,13 @@ export default function InterviewPage() {
     setAdvancing(true);
     stopSpeaking();
 
-    attemptsRef.current.push({
-      problemId: currentProblem.id,
-      code,
-      testResults,
-    });
+    if (!attemptsRef.current.some((a) => a.problemId === currentProblem.id)) {
+      attemptsRef.current.push({
+        problemId: currentProblem.id,
+        code,
+        testResults,
+      });
+    }
 
     const nextIndex = problemIndex + 1;
 
@@ -124,11 +131,11 @@ export default function InterviewPage() {
           code: a.code,
           testResults: a.testResults,
         }));
-        const report = await generateFinalReport(messages, attempts);
+        const report = await generateFinalReport(messagesRef.current, attempts);
 
         sessionStorage.setItem(
           'interviewData',
-          JSON.stringify({ report, transcript: messages, attempts: attemptsRef.current })
+          JSON.stringify({ report, transcript: messagesRef.current, attempts: attemptsRef.current })
         );
         router.push('/report');
       } catch {
