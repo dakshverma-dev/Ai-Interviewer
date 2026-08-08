@@ -25,7 +25,10 @@ export async function loadPyodideRuntime(): Promise<void> {
       throw new Error('Pyodide script not loaded');
     }
     pyodideInstance = await window.loadPyodide();
-  })();
+  })().catch((err) => {
+    loadingPromise = null;
+    throw err;
+  });
 
   return loadingPromise;
 }
