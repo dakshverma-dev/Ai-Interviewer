@@ -1,0 +1,89 @@
+@import "tailwindcss";
+
+@theme {
+  /* Colors */
+  --color-jet-ink: #0a0a0a;
+  --color-charcoal: #151515;
+  --color-fog: #858585;
+  --color-pewter: #9d9d9d;
+  --color-steel: #545454;
+  --color-dove: #d5d9e2;
+  --color-cream: #f9f8f6;
+  --color-paper: #ffffff;
+  --color-sand: #f2ede5;
+  --color-slate: #3b3b3b;
+  --color-ember: #ff5f57;
+  --color-sunbeam: #ffbd2e;
+  --color-sprout: #28c840;
+
+  /* Typography */
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  /* Spacing */
+  --spacing-4: 4px;
+  --spacing-8: 8px;
+  --spacing-12: 12px;
+  --spacing-16: 16px;
+  --spacing-20: 20px;
+  --spacing-24: 24px;
+  --spacing-32: 32px;
+  --spacing-40: 40px;
+  --spacing-48: 48px;
+  --spacing-64: 64px;
+  --spacing-96: 96px;
+
+  /* Border Radius */
+  --radius-sm: 3px;
+  --radius-md: 6px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
+  --radius-full: 9999px;
+
+  /* Shadows */
+  --shadow-subtle: rgba(10, 10, 10, 0.15) 0px 0px 0px 1px;
+  --shadow-xl: rgba(0, 0, 0, 0.1) 0px 20px 25px -5px, rgba(0, 0, 0, 0.1) 0px 8px 10px -6px;
+  --shadow-subtle-2: rgba(0, 0, 0, 0.06) 0px 0px 0px 1px, rgba(15, 23, 42, 0.18) 0px 18px 40px -24px;
+}
+
+body {
+  background: var(--color-paper);
+  color: var(--color-jet-ink);
+  font-family: var(--font-sans);
+}
+
+.btn-primary {
+  background: var(--color-jet-ink);
+  color: var(--color-paper);
+  border-radius: var(--radius-full);
+  padding: 12px 20px;
+  font-weight: 500;
+  font-size: 14px;
+  transition: opacity 0.15s ease;
+}
+.btn-primary:hover {
+  opacity: 0.85;
+}
+.btn-primary:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--color-jet-ink);
+  border-radius: var(--radius-full);
+  padding: 12px 20px;
+  font-weight: 500;
+  font-size: 14px;
+  box-shadow: var(--shadow-subtle);
+  transition: background 0.15s ease;
+}
+.btn-ghost:hover {
+  background: var(--color-cream);
+}
+
+.card {
+  background: var(--color-cream);
+  border-radius: var(--radius-2xl);
+}
