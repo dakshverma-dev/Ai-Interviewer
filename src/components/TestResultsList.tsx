@@ -24,7 +24,7 @@ export default function TestResultsList({ results }: TestResultsListProps) {
             <span style={{ color: result.passed ? 'var(--color-sprout)' : 'var(--color-ember)' }}>
               {result.passed ? '✓ PASS' : '✗ FAIL'}
             </span>{' '}
-            input: {result.input} — expected: {result.expectedOutput} — got:{' '}
+            input: {result.input}, expected: {result.expectedOutput}, got:{' '}
             {result.error ?? result.actualOutput}
           </div>
         ))}
