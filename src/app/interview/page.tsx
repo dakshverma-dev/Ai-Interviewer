@@ -104,7 +104,9 @@ function InterviewScreen() {
         .connect(
           (message, role) => {
             console.log('[Interview] Message from agent:', role, message);
-            addMessage(role, message);
+            // Convert 11Labs roles to our message roles
+            const messageRole: Message['role'] = role === 'agent' ? 'ai' : 'candidate';
+            addMessage(messageRole, message);
           },
           (isSpeaking) => {
             console.log('[Interview] Speaking state:', isSpeaking);

@@ -28,47 +28,15 @@ export class InterviewConversationManager {
       console.log('[11Labs] Initializing with agent:', this.config.agentId);
       console.log('[11Labs] API Key present:', !!this.config.apiKey);
 
-      // Try the standard 11Labs Convai endpoint first
-      console.log('[11Labs] Attempting to get signed URL...');
+      // 11Labs Convai uses direct WebSocket connection with auth
+      // The endpoint expects credentials in the URL or as first message
+      console.log('[11Labs] Attempting direct WebSocket connection...');
 
-      const signedUrlResponse = await fetch(
-        'https://api.elevenlabs.io/convai/conversation/get_signed_url',
-        {
-          method: 'POST',
-          headers: {
-            'xi-api-key': this.config.apiKey,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            agent_id: this.config.agentId,
-          }),
-        }
-      );
+      const wsUrl = `wss://api.elevenlabs.io/convai?agent_id=${encodeURIComponent(
+        this.config.agentId
+      )}&xi-api-key=${encodeURIComponent(this.config.apiKey)}`;
 
-      console.log('[11Labs] Signed URL response status:', signedUrlResponse.status);
-
-      if (!signedUrlResponse.ok) {
-        const errorBody = await signedUrlResponse.text();
-        console.error('[11Labs] Signed URL error:', signedUrlResponse.status, errorBody);
-
-        // If signed URL fails, try direct WebSocket connection
-        console.log('[11Labs] Trying direct WebSocket connection...');
-        const wsUrl = `wss://api.elevenlabs.io/convai?agent_id=${this.config.agentId}&xi-api-key=${this.config.apiKey}`;
-        return this._connectWebSocket(wsUrl);
-      }
-
-      const signedUrlData = (await signedUrlResponse.json()) as {
-        signed_url?: string;
-      };
-
-      if (!signedUrlData.signed_url) {
-        console.warn('[11Labs] No signed_url in response, trying direct connection');
-        const wsUrl = `wss://api.elevenlabs.io/convai?agent_id=${this.config.agentId}&xi-api-key=${this.config.apiKey}`;
-        return this._connectWebSocket(wsUrl);
-      }
-
-      console.log('[11Labs] Got signed URL, connecting WebSocket...');
-      return this._connectWebSocket(signedUrlData.signed_url);
+      return this._connectWebSocket(wsUrl);
     } catch (error) {
       console.error('[11Labs] Connection setup failed:', error);
       throw error;
@@ -79,7 +47,15 @@ export class InterviewConversationManager {
     return new Promise((resolve, reject) => {
       try {
         console.log('[11Labs] Creating WebSocket connection...');
-        this.websocket = new WebSocket(url);
+        console.log('[11Labs] URL:', url.substring(0, 50) + '...');
+
+        // For direct WebSocket, append headers if needed
+        const wsUrl =
+          url.startsWith('wss://') && !url.includes('?')
+            ? `${url}?xi-api-key=${encodeURIComponent(this.config.apiKey)}`
+            : url;
+
+        this.websocket = new WebSocket(wsUrl);
 
         const connectionTimeout = setTimeout(() => {
           if (!this.isConnected) {
@@ -93,6 +69,18 @@ export class InterviewConversationManager {
           clearTimeout(connectionTimeout);
           console.log('[11Labs] WebSocket connected ✓');
           this.isConnected = true;
+
+          // Send initial auth if needed
+          if (this.websocket && !url.includes('xi-api-key')) {
+            this.websocket.send(
+              JSON.stringify({
+                type: 'authentication',
+                api_key: this.config.apiKey,
+                agent_id: this.config.agentId,
+              })
+            );
+          }
+
           resolve();
         };
 
