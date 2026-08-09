@@ -6,21 +6,25 @@ import { CODING_PROBLEMS, type CodingProblem } from '@/data/problems';
 import type { Message, TestCaseResult, ProblemAttempt } from '@/lib/interviewState';
 import { loadPyodideRuntime, isPyodideReady, runTestCases } from '@/lib/pyodideRunner';
 import { getSession, type InterviewSession } from '@/lib/session';
-import {
-  getInitialGreeting,
-  getCodeExecutionResponse,
-  getProgressiveHint,
-  getInterviewResponse,
-  getProblemTransition,
-  getClosingRemark,
-  generateFinalReport,
-} from '@/lib/gemini';
+import { getInitialGreeting as realGreeting, getCodeExecutionResponse as realCodeFeedback, getProgressiveHint as realHint, getInterviewResponse as realResponse, getProblemTransition as realTransition, getClosingRemark as realClosing, generateFinalReport as realReport } from '@/lib/gemini';
+import { getInitialGreeting as mockGreeting, getCodeExecutionResponse as mockCodeFeedback, getProgressiveHint as mockHint, getInterviewResponse as mockResponse, getProblemTransition as mockTransition, getClosingRemark as mockClosing, generateFinalReport as mockReport } from '@/lib/gemini-mock';
 import { isVoiceSupported, speak, stopSpeaking } from '@/lib/voice';
 import CodeEditor from '@/components/CodeEditor';
 import ProblemPanel from '@/components/ProblemPanel';
 import TestResultsList from '@/components/TestResultsList';
 import InterviewerPanel from '@/components/InterviewerPanel';
 import ThinkingPanel from '@/components/ThinkingPanel';
+
+// Use mock mode by default; set NEXT_PUBLIC_MOCK_MODE=false to use real API
+const USE_MOCK = process.env.NEXT_PUBLIC_MOCK_MODE !== 'false';
+
+const getInitialGreeting = USE_MOCK ? mockGreeting : realGreeting;
+const getCodeExecutionResponse = USE_MOCK ? mockCodeFeedback : realCodeFeedback;
+const getProgressiveHint = USE_MOCK ? mockHint : realHint;
+const getInterviewResponse = USE_MOCK ? mockResponse : realResponse;
+const getProblemTransition = USE_MOCK ? mockTransition : realTransition;
+const getClosingRemark = USE_MOCK ? mockClosing : realClosing;
+const generateFinalReport = USE_MOCK ? mockReport : realReport;
 
 function selectProblems(session: InterviewSession | null): CodingProblem[] {
   if (!session || session.difficulty === 'Mixed') {

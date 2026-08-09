@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Mic, MicOff, Send } from 'lucide-react';
 import type { Message } from '@/lib/interviewState';
 import TranscriptMessage from './TranscriptMessage';
+import SpeakingOrb from './SpeakingOrb';
 import { startListening, stopListening, isListening as voiceIsListening } from '@/lib/voice';
 
 interface InterviewerPanelProps {
@@ -61,6 +62,11 @@ export default function InterviewerPanel({
         <span className="text-xs text-[var(--color-fog)]">
           {isAiSpeaking ? 'Interviewer speaking...' : listening ? 'Listening...' : 'Interviewer'}
         </span>
+      </div>
+
+      {/* Speaking Orb Visualization */}
+      <div className="h-40 mb-4 rounded-lg overflow-hidden" style={{ background: 'var(--color-sand)' }}>
+        <SpeakingOrb isActive={isAiSpeaking} />
       </div>
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto flex flex-col gap-3 mb-3">
