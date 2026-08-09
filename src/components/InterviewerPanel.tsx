@@ -14,6 +14,7 @@ interface InterviewerPanelProps {
   voiceSupported: boolean;
   useVoiceAgent?: boolean;
   voiceAgentReady?: boolean;
+  creditsRemaining?: number;
 }
 
 export default function InterviewerPanel({
@@ -23,6 +24,7 @@ export default function InterviewerPanel({
   voiceSupported,
   useVoiceAgent,
   voiceAgentReady,
+  creditsRemaining,
 }: InterviewerPanelProps) {
   const [textInput, setTextInput] = useState('');
   const [listening, setListening] = useState(false);
@@ -58,6 +60,13 @@ export default function InterviewerPanel({
 
   return (
     <div className="card flex flex-col h-full p-4">
+      {/* Credit indicator */}
+      {creditsRemaining !== undefined && (
+        <div className="text-xs px-3 py-1 rounded-full mb-2" style={{ background: 'rgba(255, 193, 7, 0.1)', color: 'var(--color-sand)' }}>
+          💳 Credits: {creditsRemaining}/2000
+        </div>
+      )}
+
       <div className="flex items-center gap-2 mb-3">
         <div
           className="w-2 h-2 rounded-full"

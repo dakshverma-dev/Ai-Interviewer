@@ -10,6 +10,7 @@ import { getInitialGreeting as realGreeting, getCodeExecutionResponse as realCod
 import { getInitialGreeting as mockGreeting, getCodeExecutionResponse as mockCodeFeedback, getProgressiveHint as mockHint, getInterviewResponse as mockResponse, getProblemTransition as mockTransition, getClosingRemark as mockClosing, generateFinalReport as mockReport } from '@/lib/gemini-mock';
 import { isVoiceSupported, speak, stopSpeaking } from '@/lib/voice';
 import { InterviewConversationManager } from '@/lib/elevenLabsConversation';
+import { getSessionCredits } from '@/lib/creditLimiter';
 import CodeEditor from '@/components/CodeEditor';
 import ProblemPanel from '@/components/ProblemPanel';
 import TestResultsList from '@/components/TestResultsList';
@@ -79,6 +80,7 @@ function InterviewScreen() {
   const [conversationManager, setConversationManager] = useState<InterviewConversationManager | null>(null);
   const [useVoiceAgent, setUseVoiceAgent] = useState(false);
   const [voiceAgentReady, setVoiceAgentReady] = useState(false);
+  const [creditsRemaining, setCreditsRemaining] = useState(2000);
 
   useEffect(() => {
     setVoiceSupported(isVoiceSupported());
@@ -107,6 +109,10 @@ function InterviewScreen() {
             // Convert 11Labs roles to our message roles
             const messageRole: Message['role'] = role === 'agent' ? 'ai' : 'candidate';
             addMessage(messageRole, message);
+            // Update credits display
+            const sessionId = sessionCode || 'default';
+            const credits = getSessionCredits(sessionId);
+            setCreditsRemaining(credits.remaining);
           },
           (isSpeaking) => {
             console.log('[Interview] Speaking state:', isSpeaking);
@@ -333,6 +339,7 @@ function InterviewScreen() {
             voiceSupported={voiceSupported.speechRecognition}
             useVoiceAgent={useVoiceAgent}
             voiceAgentReady={voiceAgentReady}
+            creditsRemaining={useVoiceAgent ? creditsRemaining : undefined}
           />
         </div>
       </div>

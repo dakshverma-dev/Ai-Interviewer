@@ -1,8 +1,11 @@
 'use client';
 
+import { useCredits, getCreditsRemaining } from './creditLimiter';
+
 export interface ConversationConfig {
   apiKey: string;
   agentId: string;
+  sessionId?: string;
 }
 
 export class InterviewConversationManager {
@@ -172,6 +175,15 @@ export class InterviewConversationManager {
   async sendMessage(text: string): Promise<void> {
     if (!this.isConnected || !this.websocket) {
       throw new Error('Conversation not connected');
+    }
+
+    // Check credit limits before sending
+    const sessionId = this.config.sessionId || 'default';
+    if (!useCredits(sessionId, text.length)) {
+      const remaining = getCreditsRemaining(sessionId);
+      const error = `Credit limit exceeded. 2000 credits max per session. Remaining: ${remaining}`;
+      console.error('[11Labs] ' + error);
+      throw new Error(error);
     }
 
     console.log('[11Labs] >> Sending:', text);
