@@ -89,7 +89,10 @@ function InterviewScreen() {
     const apiKey = process.env.NEXT_PUBLIC_ELEVENLABS_API_KEY;
     const agentId = process.env.NEXT_PUBLIC_ELEVENLABS_AGENT_ID;
 
+    console.log('[Interview] Env check - API Key present:', !!apiKey, 'Agent ID present:', !!agentId);
+
     if (apiKey && agentId) {
+      console.log('[Interview] Initializing 11Labs voice agent...');
       setUseVoiceAgent(true);
 
       const manager = new InterviewConversationManager({
@@ -100,26 +103,31 @@ function InterviewScreen() {
       manager
         .connect(
           (message, role) => {
+            console.log('[Interview] Message from agent:', role, message);
             addMessage(role, message);
           },
           (isSpeaking) => {
+            console.log('[Interview] Speaking state:', isSpeaking);
             setIsAiSpeaking(isSpeaking);
           }
         )
         .then(() => {
           setVoiceAgentReady(true);
-          console.log('Voice agent connected and ready');
+          console.log('[Interview] Voice agent connected and ready ✓');
         })
         .catch((error) => {
-          console.error('Failed to connect voice agent:', error);
+          console.error('[Interview] Failed to connect voice agent:', error);
           setUseVoiceAgent(false);
         });
 
       setConversationManager(manager);
 
       return () => {
+        console.log('[Interview] Cleaning up voice agent');
         manager.disconnect();
       };
+    } else {
+      console.log('[Interview] No 11Labs credentials, skipping voice agent');
     }
   }, []);
 
