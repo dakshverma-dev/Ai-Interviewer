@@ -12,6 +12,8 @@ interface InterviewerPanelProps {
   onSendMessage: (text: string) => void;
   isAiSpeaking: boolean;
   voiceSupported: boolean;
+  useVoiceAgent?: boolean;
+  voiceAgentReady?: boolean;
 }
 
 export default function InterviewerPanel({
@@ -19,6 +21,8 @@ export default function InterviewerPanel({
   onSendMessage,
   isAiSpeaking,
   voiceSupported,
+  useVoiceAgent,
+  voiceAgentReady,
 }: InterviewerPanelProps) {
   const [textInput, setTextInput] = useState('');
   const [listening, setListening] = useState(false);
@@ -57,10 +61,34 @@ export default function InterviewerPanel({
       <div className="flex items-center gap-2 mb-3">
         <div
           className="w-2 h-2 rounded-full"
-          style={{ background: isAiSpeaking ? 'var(--color-sprout)' : 'var(--color-pewter)' }}
+          style={{
+            background: useVoiceAgent
+              ? voiceAgentReady
+                ? 'var(--color-sprout)'
+                : 'var(--color-sand)'
+              : isAiSpeaking
+                ? 'var(--color-sprout)'
+                : 'var(--color-pewter)',
+          }}
         />
         <span className="text-xs text-[var(--color-fog)]">
-          {isAiSpeaking ? 'Interviewer speaking...' : listening ? 'Listening...' : 'Interviewer'}
+          {useVoiceAgent ? (
+            voiceAgentReady ? (
+              <>
+                🎙️ <span className="ml-1">Live Voice Agent</span>
+              </>
+            ) : (
+              <>
+                ⏳ <span className="ml-1">Connecting...</span>
+              </>
+            )
+          ) : isAiSpeaking ? (
+            'Interviewer speaking...'
+          ) : listening ? (
+            'Listening...'
+          ) : (
+            'Interviewer'
+          )}
         </span>
       </div>
 

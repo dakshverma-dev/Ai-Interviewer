@@ -9,6 +9,7 @@ import { getSession, type InterviewSession } from '@/lib/session';
 import { getInitialGreeting as realGreeting, getCodeExecutionResponse as realCodeFeedback, getProgressiveHint as realHint, getInterviewResponse as realResponse, getProblemTransition as realTransition, getClosingRemark as realClosing, generateFinalReport as realReport } from '@/lib/gemini';
 import { getInitialGreeting as mockGreeting, getCodeExecutionResponse as mockCodeFeedback, getProgressiveHint as mockHint, getInterviewResponse as mockResponse, getProblemTransition as mockTransition, getClosingRemark as mockClosing, generateFinalReport as mockReport } from '@/lib/gemini-mock';
 import { isVoiceSupported, speak, stopSpeaking } from '@/lib/voice';
+import { InterviewConversationManager } from '@/lib/elevenLabsConversation';
 import CodeEditor from '@/components/CodeEditor';
 import ProblemPanel from '@/components/ProblemPanel';
 import TestResultsList from '@/components/TestResultsList';
@@ -74,9 +75,54 @@ function InterviewScreen() {
   const greetedProblemsRef = useRef<Set<string>>(new Set());
   const [voiceSupported, setVoiceSupported] = useState({ speechSynthesis: false, speechRecognition: false });
 
+  // 11Labs voice agent state
+  const [conversationManager, setConversationManager] = useState<InterviewConversationManager | null>(null);
+  const [useVoiceAgent, setUseVoiceAgent] = useState(false);
+  const [voiceAgentReady, setVoiceAgentReady] = useState(false);
+
   useEffect(() => {
     setVoiceSupported(isVoiceSupported());
   }, []);
+
+  // Initialize 11Labs voice agent on mount
+  useEffect(() => {
+    const apiKey = process.env.NEXT_PUBLIC_ELEVENLABS_API_KEY;
+    const agentId = process.env.NEXT_PUBLIC_ELEVENLABS_AGENT_ID;
+
+    if (apiKey && agentId) {
+      setUseVoiceAgent(true);
+
+      const manager = new InterviewConversationManager({
+        apiKey,
+        agentId,
+      });
+
+      manager
+        .connect(
+          (message, role) => {
+            addMessage(role, message);
+          },
+          (isSpeaking) => {
+            setIsAiSpeaking(isSpeaking);
+          }
+        )
+        .then(() => {
+          setVoiceAgentReady(true);
+          console.log('Voice agent connected and ready');
+        })
+        .catch((error) => {
+          console.error('Failed to connect voice agent:', error);
+          setUseVoiceAgent(false);
+        });
+
+      setConversationManager(manager);
+
+      return () => {
+        manager.disconnect();
+      };
+    }
+  }, []);
+
   const currentProblem = problems[problemIndex];
 
   useEffect(() => {
@@ -101,7 +147,8 @@ function InterviewScreen() {
   };
 
   useEffect(() => {
-    if (greetedProblemsRef.current.has(currentProblem.id)) return;
+    // Skip greeting if using voice agent (it will handle its own greeting)
+    if (useVoiceAgent || greetedProblemsRef.current.has(currentProblem.id)) return;
     greetedProblemsRef.current.add(currentProblem.id);
 
     getInitialGreeting(currentProblem)
@@ -111,7 +158,7 @@ function InterviewScreen() {
       })
       .catch(() => setError('Could not reach the AI interviewer. Check your connection and API key. You can dismiss this and try again.'));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentProblem.id]);
+  }, [currentProblem.id, useVoiceAgent]);
 
   const handleRunCode = async () => {
     if (!isPyodideReady()) return;
@@ -139,16 +186,23 @@ function InterviewScreen() {
     addMessage('candidate', text);
     setError(null);
     try {
-      const isHintRequest = /hint|help|stuck|clue/i.test(text);
-      if (isHintRequest) setIsThinking(true);
-      const response = isHintRequest
-        ? await getProgressiveHint(currentProblem, code, 2)
-        : await getInterviewResponse(text, code, currentProblem, messagesRef.current);
+      if (useVoiceAgent && conversationManager?.isReady()) {
+        // Use 11Labs voice agent for real-time conversation
+        await conversationManager.sendMessage(text);
+      } else {
+        // Fall back to mock/real text-based API
+        const isHintRequest = /hint|help|stuck|clue/i.test(text);
+        if (isHintRequest) setIsThinking(true);
+        const response = isHintRequest
+          ? await getProgressiveHint(currentProblem, code, 2)
+          : await getInterviewResponse(text, code, currentProblem, messagesRef.current);
+        setIsThinking(false);
+        addMessage('ai', response);
+        speakIfSupported(response);
+      }
+    } catch (err) {
       setIsThinking(false);
-      addMessage('ai', response);
-      speakIfSupported(response);
-    } catch {
-      setIsThinking(false);
+      console.error('Message error:', err);
       setError('Could not reach the AI interviewer. Check your connection and API key, then retry.');
     }
   };
@@ -267,6 +321,8 @@ function InterviewScreen() {
             onSendMessage={handleSendMessage}
             isAiSpeaking={isAiSpeaking}
             voiceSupported={voiceSupported.speechRecognition}
+            useVoiceAgent={useVoiceAgent}
+            voiceAgentReady={voiceAgentReady}
           />
         </div>
       </div>
