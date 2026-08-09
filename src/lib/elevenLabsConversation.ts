@@ -25,81 +25,103 @@ export class InterviewConversationManager {
     this.onSpeakingCallback = onSpeaking;
 
     try {
-      console.log('[11Labs] Connecting with agent ID:', this.config.agentId);
+      console.log('[11Labs] Initializing with agent:', this.config.agentId);
+      console.log('[11Labs] API Key present:', !!this.config.apiKey);
 
-      // Get session token from 11Labs using the correct endpoint
-      const response = await fetch('https://api.elevenlabs.io/convai/conversation/get_signed_url', {
-        method: 'POST',
-        headers: {
-          'xi-api-key': this.config.apiKey,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          agent_id: this.config.agentId,
-        }),
-      });
+      // Try the standard 11Labs Convai endpoint first
+      console.log('[11Labs] Attempting to get signed URL...');
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('[11Labs] Error response:', response.status, errorText);
-        throw new Error(`Failed to get signed URL: ${response.status} - ${errorText}`);
-      }
-
-      const data = (await response.json()) as { signed_url?: string };
-      if (!data.signed_url) {
-        throw new Error('No signed_url in response');
-      }
-
-      const signedUrl = data.signed_url;
-      console.log('[11Labs] Got signed URL, connecting WebSocket...');
-
-      // Connect to WebSocket with the signed URL
-      return new Promise((resolve, reject) => {
-        try {
-          this.websocket = new WebSocket(signedUrl);
-
-          this.websocket.onopen = () => {
-            console.log('[11Labs] WebSocket connected ✓');
-            this.isConnected = true;
-            resolve();
-          };
-
-          this.websocket.onmessage = (event) => {
-            try {
-              const message = JSON.parse(event.data);
-              console.log('[11Labs] Message received:', message.type);
-              this._handleMessage(message);
-            } catch (error) {
-              console.error('[11Labs] Failed to parse message:', error, event.data);
-            }
-          };
-
-          this.websocket.onerror = (error) => {
-            console.error('[11Labs] WebSocket error:', error);
-            this.isConnected = false;
-            reject(error);
-          };
-
-          this.websocket.onclose = () => {
-            console.log('[11Labs] WebSocket closed');
-            this.isConnected = false;
-          };
-
-          // Timeout if connection doesn't establish
-          setTimeout(() => {
-            if (!this.isConnected) {
-              reject(new Error('WebSocket connection timeout'));
-            }
-          }, 10000);
-        } catch (error) {
-          reject(error);
+      const signedUrlResponse = await fetch(
+        'https://api.elevenlabs.io/convai/conversation/get_signed_url',
+        {
+          method: 'POST',
+          headers: {
+            'xi-api-key': this.config.apiKey,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            agent_id: this.config.agentId,
+          }),
         }
-      });
+      );
+
+      console.log('[11Labs] Signed URL response status:', signedUrlResponse.status);
+
+      if (!signedUrlResponse.ok) {
+        const errorBody = await signedUrlResponse.text();
+        console.error('[11Labs] Signed URL error:', signedUrlResponse.status, errorBody);
+
+        // If signed URL fails, try direct WebSocket connection
+        console.log('[11Labs] Trying direct WebSocket connection...');
+        const wsUrl = `wss://api.elevenlabs.io/convai?agent_id=${this.config.agentId}&xi-api-key=${this.config.apiKey}`;
+        return this._connectWebSocket(wsUrl);
+      }
+
+      const signedUrlData = (await signedUrlResponse.json()) as {
+        signed_url?: string;
+      };
+
+      if (!signedUrlData.signed_url) {
+        console.warn('[11Labs] No signed_url in response, trying direct connection');
+        const wsUrl = `wss://api.elevenlabs.io/convai?agent_id=${this.config.agentId}&xi-api-key=${this.config.apiKey}`;
+        return this._connectWebSocket(wsUrl);
+      }
+
+      console.log('[11Labs] Got signed URL, connecting WebSocket...');
+      return this._connectWebSocket(signedUrlData.signed_url);
     } catch (error) {
-      console.error('[11Labs] Connection failed:', error);
-      this.isConnected = false;
+      console.error('[11Labs] Connection setup failed:', error);
       throw error;
     }
+  }
+
+  private _connectWebSocket(url: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+      try {
+        console.log('[11Labs] Creating WebSocket connection...');
+        this.websocket = new WebSocket(url);
+
+        const connectionTimeout = setTimeout(() => {
+          if (!this.isConnected) {
+            console.error('[11Labs] Connection timeout after 10s');
+            reject(new Error('WebSocket connection timeout'));
+            this.websocket?.close();
+          }
+        }, 10000);
+
+        this.websocket.onopen = () => {
+          clearTimeout(connectionTimeout);
+          console.log('[11Labs] WebSocket connected ✓');
+          this.isConnected = true;
+          resolve();
+        };
+
+        this.websocket.onmessage = (event) => {
+          try {
+            const message = JSON.parse(event.data);
+            console.log('[11Labs] <<', message.type || 'unknown', message);
+            this._handleMessage(message);
+          } catch (error) {
+            console.error('[11Labs] Parse error:', error, event.data);
+          }
+        };
+
+        this.websocket.onerror = (error) => {
+          clearTimeout(connectionTimeout);
+          console.error('[11Labs] WebSocket error:', error);
+          this.isConnected = false;
+          reject(error);
+        };
+
+        this.websocket.onclose = (event) => {
+          clearTimeout(connectionTimeout);
+          console.log('[11Labs] WebSocket closed (code:', event.code, 'reason:', event.reason, ')');
+          this.isConnected = false;
+        };
+      } catch (error) {
+        reject(error);
+      }
+    });
   }
 
   private _handleMessage(message: Record<string, unknown>) {
@@ -108,24 +130,24 @@ export class InterviewConversationManager {
     switch (type) {
       case 'conversation_initiation_metadata':
         this.conversationId = (message.conversation_id as string) || '';
-        console.log('[11Labs] Conversation initiated:', this.conversationId);
+        console.log('[11Labs] Conversation ID:', this.conversationId);
         break;
 
       case 'user_transcript':
-        if (this.onMessageCallback) {
+        {
           const text = (message.user_transcript as string) || '';
-          if (text.trim()) {
-            console.log('[11Labs] User transcript:', text);
+          if (text.trim() && this.onMessageCallback) {
+            console.log('[11Labs] >> User:', text);
             this.onMessageCallback(text, 'user');
           }
         }
         break;
 
       case 'agent_response':
-        if (this.onMessageCallback) {
+        {
           const text = (message.agent_response as string) || '';
-          if (text.trim()) {
-            console.log('[11Labs] Agent response:', text);
+          if (text.trim() && this.onMessageCallback) {
+            console.log('[11Labs] >> Agent:', text);
             this.onMessageCallback(text, 'agent');
           }
         }
@@ -135,29 +157,27 @@ export class InterviewConversationManager {
         break;
 
       case 'audio_chunk':
-        // Audio is being played
         if (this.onSpeakingCallback) {
           this.onSpeakingCallback(true);
         }
         break;
 
       case 'audio_end':
-        // Audio finished
         if (this.onSpeakingCallback) {
           this.onSpeakingCallback(false);
         }
         break;
 
       case 'interruption':
-        console.log('[11Labs] User interrupted agent');
+        console.log('[11Labs] User interrupted');
         break;
 
       case 'error':
-        console.error('[11Labs] Agent error:', message.error);
+        console.error('[11Labs] Error from agent:', message.error);
         break;
 
       default:
-        console.debug('[11Labs] Message type:', type, message);
+        console.debug('[11Labs] Message:', type, message);
     }
   }
 
@@ -166,7 +186,7 @@ export class InterviewConversationManager {
       throw new Error('Conversation not connected');
     }
 
-    console.log('[11Labs] Sending message:', text);
+    console.log('[11Labs] >> Sending:', text);
     this.websocket.send(
       JSON.stringify({
         type: 'user_input',
@@ -177,7 +197,7 @@ export class InterviewConversationManager {
 
   async disconnect(): Promise<void> {
     if (this.websocket) {
-      console.log('[11Labs] Disconnecting...');
+      console.log('[11Labs] Disconnecting');
       this.websocket.close();
       this.isConnected = false;
     }
