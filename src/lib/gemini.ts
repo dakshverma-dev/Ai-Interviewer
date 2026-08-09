@@ -4,6 +4,7 @@ import type { Message, TestCaseResult, InterviewReport } from './interviewState'
 
 function getModel() {
   const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+  console.log('[gemini] key present:', !!apiKey, apiKey?.slice(0, 6));
   if (!apiKey) {
     throw new Error('NEXT_PUBLIC_GEMINI_API_KEY is not set. Add it to .env.local.');
   }

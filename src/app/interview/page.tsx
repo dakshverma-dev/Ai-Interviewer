@@ -44,7 +44,14 @@ function InterviewScreen() {
   const searchParams = useSearchParams();
   const sessionCode = searchParams.get('code');
 
-  const session = useMemo(() => (sessionCode ? getSession(sessionCode) ?? null : null), [sessionCode]);
+  const [session, setSession] = useState<InterviewSession | null>(null);
+
+  useEffect(() => {
+    if (sessionCode) {
+      setSession(getSession(sessionCode) ?? null);
+    }
+  }, [sessionCode]);
+
   const problems = useMemo(() => selectProblems(session), [session]);
 
   const [problemIndex, setProblemIndex] = useState(0);
@@ -61,7 +68,11 @@ function InterviewScreen() {
   const attemptsRef = useRef<ProblemAttempt[]>([]);
   const messagesRef = useRef<Message[]>([]);
   const greetedProblemsRef = useRef<Set<string>>(new Set());
-  const voiceSupported = useRef(isVoiceSupported()).current;
+  const [voiceSupported, setVoiceSupported] = useState({ speechSynthesis: false, speechRecognition: false });
+
+  useEffect(() => {
+    setVoiceSupported(isVoiceSupported());
+  }, []);
   const currentProblem = problems[problemIndex];
 
   useEffect(() => {
@@ -218,38 +229,42 @@ function InterviewScreen() {
         </div>
       )}
 
-      <div className="flex-1 grid grid-cols-2 gap-4 min-h-0">
-        <div className="flex flex-col gap-3 min-h-0">
-          <div className="min-h-0" style={{ flex: '0 1 40%' }}>
-            <ProblemPanel problem={currentProblem} />
+      <div className="flex-1 flex gap-4 min-h-0">
+        {/* Left: Problem statement + test results */}
+        <div className="w-[28%] min-h-0 flex flex-col gap-3 overflow-y-auto">
+          <ProblemPanel problem={currentProblem} />
+          <TestResultsList results={testResults} />
+        </div>
+
+        {/* Middle: Code editor + run controls */}
+        <div className="flex-1 min-h-0 flex flex-col gap-3">
+          <div className="flex-1 min-h-0 relative">
+            <CodeEditor value={code} onChange={setCode} />
           </div>
-          <div style={{ flex: '1 1 60%' }} className="min-h-0 flex flex-col gap-3">
-            <div className="flex-1 min-h-0">
-              <CodeEditor value={code} onChange={setCode} />
-            </div>
-            <ThinkingPanel active={isThinking} />
-            <TestResultsList results={testResults} />
-            <div className="flex gap-3">
-              <button
-                onClick={handleRunCode}
-                disabled={!pyodideReady || isRunning}
-                className="btn-primary"
-              >
-                {!pyodideReady ? 'Loading Python...' : isRunning ? 'Running...' : 'Run Code'}
-              </button>
-              <button onClick={handleNextProblem} disabled={advancing} className="btn-ghost">
-                {problemIndex === problems.length - 1 ? 'Finish Interview' : 'Next Problem'}
-              </button>
-            </div>
+          <ThinkingPanel active={isThinking} />
+          <div className="flex gap-3 shrink-0">
+            <button
+              onClick={handleRunCode}
+              disabled={!pyodideReady || isRunning}
+              className="btn-primary"
+            >
+              {!pyodideReady ? 'Loading Python...' : isRunning ? 'Running...' : 'Run Code'}
+            </button>
+            <button onClick={handleNextProblem} disabled={advancing} className="btn-ghost">
+              {problemIndex === problems.length - 1 ? 'Finish Interview' : 'Next Problem'}
+            </button>
           </div>
         </div>
 
-        <InterviewerPanel
-          messages={messages}
-          onSendMessage={handleSendMessage}
-          isAiSpeaking={isAiSpeaking}
-          voiceSupported={voiceSupported.speechRecognition}
-        />
+        {/* Right: Interviewer chat */}
+        <div className="w-[28%] min-h-0">
+          <InterviewerPanel
+            messages={messages}
+            onSendMessage={handleSendMessage}
+            isAiSpeaking={isAiSpeaking}
+            voiceSupported={voiceSupported.speechRecognition}
+          />
+        </div>
       </div>
     </div>
   );
